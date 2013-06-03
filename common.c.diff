@@ -1,0 +1,80 @@
+--- /home/mweissman/opt/src/Python-2.7.5/pip-build/numpy/numpy/core/src/multiarray/common.c  2013-06-03 09:35:16.921509000 -0400
++++ common.c	2013-06-03 09:47:00.507716000 -0400
+@@ -27,6 +27,21 @@
+  * be allowed under the NPY_SAME_KIND_CASTING rules, and if not we issue a
+  * warning (that people's code will be broken in a future release.)
+  */
++
++PyObject *PyArray_GetAttrString_Lite(PyObject *v, char *name)
++{
++  PyTypeObject *tp = Py_TYPE(v);
++  if (tp==&PyList_Type || tp==&PyTuple_Type || v==Py_None)
++    return (PyObject *)0;
++  if (tp->tp_getattro != NULL)
++    return (*tp->tp_getattro)(v, PyString_InternFromString(name));
++  if (tp->tp_getattr != NULL)
++    return (*tp->tp_getattr)(v, name);
++  return (PyObject *)0;
++}
++
++
++
+ NPY_NO_EXPORT NPY_CASTING NPY_DEFAULT_ASSIGN_CASTING = NPY_INTERNAL_UNSAFE_CASTING_BUT_WARN_UNLESS_SAME_KIND;
+ 
+ 
+@@ -159,7 +174,15 @@
+     }
+ 
+     /* Check if it's a NumPy scalar */
+-    if (PyArray_IsScalar(obj, Generic)) {
++    if (obj==Py_None) {
++      dtype = PyArray_DescrFromType(NPY_OBJECT);
++      if (dtype == NULL) {
++	goto fail;
++      }
++      Py_INCREF(dtype);
++      goto promote_types;
++    }
++    else if (PyArray_IsScalar(obj, Generic)) {
+         if (!string_type) {
+             dtype = PyArray_DescrFromScalar(obj);
+             if (dtype == NULL) {
+@@ -311,6 +334,7 @@
+ 
+ #if PY_VERSION_HEX >= 0x02060000
+     /* PEP 3118 buffer interface */
++  if (PyObject_CheckBuffer(obj)==1) {
+     memset(&buffer_view, 0, sizeof(Py_buffer));
+     if (PyObject_GetBuffer(obj, &buffer_view, PyBUF_FORMAT|PyBUF_STRIDES) == 0 ||
+         PyObject_GetBuffer(obj, &buffer_view, PyBUF_FORMAT) == 0) {
+@@ -334,10 +358,11 @@
+     else {
+         PyErr_Clear();
+     }
++  }
+ #endif
+ 
+     /* The array interface */
+-    ip = PyObject_GetAttrString(obj, "__array_interface__");
++    ip = PyArray_GetAttrString_Lite(obj, "__array_interface__");
+     if (ip != NULL) {
+         if (PyDict_Check(ip)) {
+             PyObject *typestr;
+@@ -373,7 +398,7 @@
+     }
+ 
+     /* The array struct interface */
+-    ip = PyObject_GetAttrString(obj, "__array_struct__");
++    ip = PyArray_GetAttrString_Lite(obj, "__array_struct__");
+     if (ip != NULL) {
+         PyArrayInterface *inter;
+         char buf[40];
+@@ -411,7 +436,7 @@
+ #endif
+ 
+     /* The __array__ attribute */
+-    if (PyObject_HasAttrString(obj, "__array__")) {
++    if (PyArray_GetAttrString_Lite(obj, "__array__")) {
+         ip = PyObject_CallMethod(obj, "__array__", NULL);
+         if(ip && PyArray_Check(ip)) {
+             dtype = PyArray_DESCR((PyArrayObject *)ip);
