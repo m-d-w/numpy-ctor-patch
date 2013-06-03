@@ -1,0 +1,87 @@
+--- /home/mweissman/opt/src/Python-2.7.5/pip-build/numpy/numpy/core/src/multiarray/ctors.c  2013-06-03 09:35:17.044507000 -0400
++++ ctors.c	2013-06-03 09:47:18.354811000 -0400
+@@ -33,6 +33,9 @@
+  * regards to the handling of text representations.
+  */
+ 
++extern PyObject *PyArray_GetAttrString_Lite(PyObject *v, char *name);
++
++
+ typedef int (*next_element)(void **, void *, PyArray_Descr *, void *);
+ typedef int (*skip_separator)(void **, const char *, void *);
+ 
+@@ -629,6 +632,7 @@
+     /* obj is a PEP 3118 buffer */
+ #if PY_VERSION_HEX >= 0x02060000
+     /* PEP 3118 buffer interface */
++  if (PyObject_CheckBuffer(obj)==1) {
+     memset(&buffer_view, 0, sizeof(Py_buffer));
+     if (PyObject_GetBuffer(obj, &buffer_view, PyBUF_STRIDES) == 0 ||
+         PyObject_GetBuffer(obj, &buffer_view, PyBUF_ND) == 0) {
+@@ -651,10 +655,11 @@
+     else {
+         PyErr_Clear();
+     }
++  }
+ #endif
+ 
+     /* obj has the __array_struct__ interface */
+-    if ((e = PyObject_GetAttrString(obj, "__array_struct__")) != NULL) {
++    if ((e = PyArray_GetAttrString_Lite(obj, "__array_struct__")) != NULL) {
+         int nd = -1;
+         if (NpyCapsule_Check(e)) {
+             PyArrayInterface *inter;
+@@ -681,7 +686,7 @@
+     }
+ 
+     /* obj has the __array_interface__ interface */
+-    if ((e = PyObject_GetAttrString(obj, "__array_interface__")) != NULL) {
++    if ((e = PyArray_GetAttrString_Lite(obj, "__array_interface__")) != NULL) {
+         int nd = -1;
+         if (PyDict_Check(e)) {
+             PyObject *new;
+@@ -1007,7 +1012,7 @@
+     if ((subtype != &PyArray_Type)) {
+         PyObject *res, *func, *args;
+ 
+-        func = PyObject_GetAttrString((PyObject *)fa, "__array_finalize__");
++        func = PyArray_GetAttrString_Lite((PyObject *)fa, "__array_finalize__");
+         if (func && func != Py_None) {
+             if (NpyCapsule_Check(func)) {
+                 /* A C-function is stored here */
+@@ -1921,7 +1926,7 @@
+     PyArrayObject *ret;
+     char endian = NPY_NATBYTE;
+ 
+-    attr = PyObject_GetAttrString(input, "__array_struct__");
++    attr = PyArray_GetAttrString_Lite(input, "__array_struct__");
+     if (attr == NULL) {
+         PyErr_Clear();
+         return Py_NotImplemented;
+@@ -1996,7 +2001,7 @@
+     /* Get the memory from __array_data__ and __array_offset__ */
+     /* Get the strides */
+ 
+-    iface = PyObject_GetAttrString(origin, "__array_interface__");
++    iface = PyArray_GetAttrString_Lite(origin, "__array_interface__");
+     if (iface == NULL) {
+         PyErr_Clear();
+         return Py_NotImplemented;
+@@ -2213,7 +2218,7 @@
+     PyObject *new;
+     PyObject *array_meth;
+ 
+-    array_meth = PyObject_GetAttrString(op, "__array__");
++    array_meth = PyArray_GetAttrString_Lite(op, "__array__");
+     if (array_meth == NULL) {
+         PyErr_Clear();
+         return Py_NotImplemented;
+@@ -3255,7 +3260,7 @@
+ #endif
+         ) {
+         PyObject *newbuf;
+-        newbuf = PyObject_GetAttrString(buf, "__buffer__");
++        newbuf = PyArray_GetAttrString_Lite(buf, "__buffer__");
+         if (newbuf == NULL) {
+             Py_DECREF(type);
+             return NULL;
